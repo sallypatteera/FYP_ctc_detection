@@ -1,7 +1,8 @@
-torch
+# --editable .# Install current project in editable mode (triggers setup.py)
 numpy
 opencv-python
 pandas
 scikit-learn
+torch
 ultralytics
-os-sys
+#os-sys (If this is a custom module, keep it, otherwise remove it)
