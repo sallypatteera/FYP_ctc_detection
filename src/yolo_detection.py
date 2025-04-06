@@ -4,20 +4,21 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Load YOLOv5 model once
-MODEL_PATH = "models/bestyolo2.pt"
-model = torch.hub.load('ultralytics/yolov5', 'custom', path=MODEL_PATH)
+# # Load YOLOv5 model once
+# MODEL_PATH = "models/bestyolo2.pt"
+# model = torch.hub.load('ultralytics/yolov5', 'custom', path=MODEL_PATH, verbose=False)
 
 # Detect cells in an image
-def detect_cells(image):
+def detect_cells(image, model):
     """Runs YOLOv5 detection on an image and returns bounding boxes."""
     results = model(image)
 
     # Extract bounding boxes from YOLO output
     detected_cells = []
     for *box, conf, cls in results.xyxy[0].tolist():
-        x1, y1, x2, y2 = map(int, box)
-        detected_cells.append((x1, y1, x2, y2))
+        if int(cls) == 0:
+            x1, y1, x2, y2 = map(int, box)
+            detected_cells.append((x1, y1, x2, y2))
 
     return detected_cells
 
@@ -51,9 +52,9 @@ def crop_images_from_bboxes(image: np.ndarray, bboxes: list) -> list:
     
 
 # Execute all the code in this file
-def run_detection(image_path):
+def run_detection(image_path, model):
     image = cv2.imread(image_path)  # Read image only once
-    detected_cells = detect_cells(image)
+    detected_cells = detect_cells(image, model)
     cropped_cells = crop_images_from_bboxes(image, detected_cells)
     return cropped_cells
 
