@@ -6,39 +6,56 @@ import torch
 from tensorflow.keras.models import load_model
 import warnings
 
-from src.yolo_detection import run_detection
+from src.yolo_detection_subclass import run_detection
 # from src.sam_filtercrop import execute_filter_crop
-from src.effnet_classification import execute_classification
+from src.mobilenet_filtercrop_subclass import execute_filtering, filter_valid_conf
+from src.effnet_classification_subclass import execute_classification
 
 # load model
 # Load YOLOv5 model once
 warnings.filterwarnings("ignore", category=FutureWarning)
-MODEL_PATH = "models/bestyolo2.pt"
-yolo_model = torch.hub.load('ultralytics/yolov5', 'custom', path=MODEL_PATH, verbose=False)
+YOLO_SUBCLASS_MODEL_PATH = "models/best_yolo_subclass.pt"
+YOLO_MODEL_PATH = "models/best_yolo_wbc_cc.pt"
+yolo_model = torch.hub.load('ultralytics/yolov5', 'custom', path=YOLO_SUBCLASS_MODEL_PATH, verbose=False)
 
 # Load the EfficientNet model
-MODEL_PATH = "models/efficientnetb0_model_0404_Best.h5"
-effnet_model = load_model(MODEL_PATH)
+EFFNET_MODEL_PATH = "models/efficientnetb0_model_0404_Best.h5"
+effnet_model = load_model(EFFNET_MODEL_PATH)
+
+# Load the trained MobileNetV2 filtering model
+FILTER_MODEL_PATH = "models/mobilenetv2_filter_best.h5"
+mobile_model = load_model(FILTER_MODEL_PATH)
 
 
 def process_image(image_path):
     print(f"\n🔹 Processing: {image_path}")
 
     print("🔹 Running YOLOv5 detection...")
-    detected_cells = run_detection(image_path, model=yolo_model)
-    print(f"    Detected {len(detected_cells)} cells.")
+    # detected_cells = run_detection(image_path, model=yolo_model)
+    detected_cells, detected_conf = run_detection(image_path, model=yolo_model)
 
-    # print("Cropping images from bounding boxes...") # actually it's filtering
-    # filtered_cropped_cells = execute_filter_crop(detected_cells) # array of multiple cropped images
-    # print(f"Valid {len(filtered_cropped_cells)/len(detected_cells)} cells for classifying.")
-    # print()
+    if detected_cells is not None:
+        print(f"🔸🔸 Detected {len(detected_cells)} cells.")
 
-    print("🔹 Running DL model on valid cropped cells...")
-    execute_classification(detected_cells, effnet_model)
-    print("===========================================")
+        print("Cropping images from bounding boxes...")  # actually it's filtering
+        # filtered_cropped_cells = execute_filtering(detected_cells, mobile_model)  # array of multiple cropped images
+        filtered_cropped_cells, filtered_valid_indices = execute_filtering(detected_cells, mobile_model)
+        if filtered_cropped_cells is not None:
+            print(f"🔸🔸 Valid {len(filtered_cropped_cells)} out of {len(detected_cells)} cells for classifying.")
 
-    
-
+            print("🔹 Running DL model on valid cropped cells...")
+            filtered_valid_conf = filter_valid_conf(detected_conf, filtered_valid_indices)
+            # execute_classification(filtered_cropped_cells, effnet_model)
+            execute_classification(filtered_cropped_cells, effnet_model, filtered_valid_conf)
+            print("===========================================")
+        else:
+            print("🔸🔸 No valid cells found for classification.")
+            print("===========================================")
+            return
+    else:
+        print("🔸🔸 No cells detected.")
+        print("===========================================")
+        return
 
 
 def main(image_folder):

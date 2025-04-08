@@ -50,7 +50,8 @@ def show_pred_classes(class_names):
     
     # print(f"Class counts: {class_counts}")
     maxpred = max(class_counts, key=class_counts.get)
-    print(f"    This image contains {len(class_names)} {maxpred} cells.")
+    print("🔸🔸 Classification results:")
+    print(f"🔸🔸 This image contains {len(class_names)} {maxpred} cells.")
 
 # execute all the code in this file
 def execute_classification(crop_list, model):
