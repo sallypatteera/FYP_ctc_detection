@@ -1,4 +1,5 @@
 # filter only valid cropped images from yolo detection using SAM
+# note: not using sam for filtering anymore due to memory issue
 
 # Set up
 import os
@@ -15,10 +16,6 @@ mask_generator = SamAutomaticMaskGenerator(sam)
 
 import cv2
 import numpy as np
-# import matplotlib.pyplot as plt
-# import supervision as sv
-# from skimage import measure
-# from scipy import ndimage as ndi
 
 # Helper functions: contrast enhancement
 # Function for contrast enhancement using CLAHE

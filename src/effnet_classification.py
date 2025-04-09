@@ -1,15 +1,15 @@
 # Load and run prediction using the trained EfficientNet model
 import tensorflow as tf
 import numpy as np
-# from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model
 import os
 
 # suppress TF warnings and info logs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # # Load the EfficientNet model
-# MODEL_PATH = "models/efficientnetb0_model_0404_Best.h5"
-# model = load_model(MODEL_PATH)
+MODEL_PATH = "models/efficientnetb0_model_0404_Best.h5"
+model = load_model(MODEL_PATH)
 
 # class labels
 CLASS_NAMES = ['A549', 'H2452', 'HEYA8', 'T24']
@@ -27,22 +27,42 @@ def predict_cell_batch(crop_list, model):
     batch = tf.stack([preprocess_crop(crop) for crop in crop_list], axis=0)
     # Make predictions
     preds = model.predict(batch, verbose=0)
-    # Get class indices
-    class_indices = tf.argmax(preds, axis=1).numpy()
-    # Map indices to class names
-    class_names = [CLASS_NAMES[i] for i in class_indices]
+    # Round the predictions to two decimal places
+    preds = np.round(preds, 2)
+    return preds
 
-    # Print predictions
-    # for i, pred in enumerate(class_names):
-    #     print(f"cell_{i}: {pred}")
-    # print("Predictions:", class_names)
+"""
+yolo's validation confidence = 0.955
+effnet's validation confidence = 0.96
 
-    return class_names
+total confidence = 0.955 + 0.96 = 1.915
+
+weight_yolo = 0.955 / 1.915 = 0.498
+weight_effnet = 0.96 / 1.915 = 0.502
+
+~around 50% for each model
+"""
+
+# Combine model predictions
+def combine_predictions(yolo_conf, effnet_prob):
+    weight_yolo = 0.498
+    weight_effnet = 0.502
+
+    # Combine probabilities
+    if len(yolo_conf) != len(effnet_prob):
+        raise ValueError("Length of YOLO confidence and EfficientNet probabilities must match.")
+    weight_yolo_array = np.full_like(yolo_conf, weight_yolo)
+    weight_effnet_array = np.full_like(effnet_prob, weight_effnet)
+    combined_prob = yolo_conf * weight_yolo_array + effnet_prob * weight_effnet_array
+
+    final_class_indices = tf.argmax(combined_prob, axis=1).numpy()
+    final_class_names = [CLASS_NAMES[i] for i in final_class_indices]
+    return final_class_names
 
 # count class occurrences
-def show_pred_classes(class_names):
+def show_pred_classes(final_class_names):
     class_counts = {}
-    for name in class_names:
+    for name in final_class_names:
         if name in class_counts:
             class_counts[name] += 1
         else:
@@ -50,13 +70,16 @@ def show_pred_classes(class_names):
     
     # print(f"Class counts: {class_counts}")
     maxpred = max(class_counts, key=class_counts.get)
-    print("🔸🔸 Classification results:")
-    print(f"🔸🔸 This image contains {len(class_names)} {maxpred} cells.")
+    # print("🔸🔸 Classification results:")
+    # print(f"🔸🔸 This image contains {len(final_class_names)} {maxpred} cells.")
+    return maxpred
 
 # execute all the code in this file
-def execute_classification(crop_list, model):
-    predictions = predict_cell_batch(crop_list, model)
-    show_pred_classes(predictions)
+def execute_classification(crop_list, model, filtered_valid_conf):
+    effnet_prob = predict_cell_batch(crop_list, model)
+    final_class_names = combine_predictions(filtered_valid_conf, effnet_prob)
+    maxpred = show_pred_classes(final_class_names)
+    return maxpred
 
 
 # --------------------------------------
@@ -71,7 +94,6 @@ def execute_classification(crop_list, model):
 #     if img is not None:
 #         image_np.append(img)
 
-# predictions = predict_cell_batch(image_np)
+# predictions = predict_cell_batch(image_np, model)
 # show_pred_classes(predictions)
-
-# idea: display input image with bounding boxes, and predictions
+# execute_classification(image_np, model)

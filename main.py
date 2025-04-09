@@ -6,10 +6,9 @@ import torch
 from tensorflow.keras.models import load_model
 import warnings
 
-from src.yolo_detection_subclass import run_detection
-# from src.sam_filtercrop import execute_filter_crop
-from src.mobilenet_filtercrop_subclass import execute_filtering, filter_valid_conf
-from src.effnet_classification_subclass import execute_classification
+from src.yolo_detection import run_detection
+from src.mobilenet_filtercrop import execute_filtering, filter_valid_conf
+from src.effnet_classification import execute_classification
 
 # load model
 # Load YOLOv5 model once
@@ -23,7 +22,7 @@ EFFNET_MODEL_PATH = "models/efficientnetb0_model_0404_Best.h5"
 effnet_model = load_model(EFFNET_MODEL_PATH)
 
 # Load the trained MobileNetV2 filtering model
-FILTER_MODEL_PATH = "models/mobilenetv2_filter_best.h5"
+FILTER_MODEL_PATH = "models/mobilenetv2_filter_best_0904.h5"
 mobile_model = load_model(FILTER_MODEL_PATH)
 
 
@@ -31,29 +30,26 @@ def process_image(image_path):
     print(f"\n🔹 Processing: {image_path}")
 
     print("🔹 Running YOLOv5 detection...")
-    # detected_cells = run_detection(image_path, model=yolo_model)
     detected_cells, detected_conf = run_detection(image_path, model=yolo_model)
 
     if detected_cells is not None:
-        print(f"🔸🔸 Detected {len(detected_cells)} cells.")
+        print(f"🔸🔸 Detected {len(detected_cells)} cells.\n")
 
-        print("Cropping images from bounding boxes...")  # actually it's filtering
-        # filtered_cropped_cells = execute_filtering(detected_cells, mobile_model)  # array of multiple cropped images
+        print("🔹 Cropping images from bounding boxes...")  # actually it's filtering
         filtered_cropped_cells, filtered_valid_indices = execute_filtering(detected_cells, mobile_model)
         if filtered_cropped_cells is not None:
-            print(f"🔸🔸 Valid {len(filtered_cropped_cells)} out of {len(detected_cells)} cells for classifying.")
 
-            print("🔹 Running DL model on valid cropped cells...")
+            print("🔹 Running EfficientNetB0 classifier on valid cropped cells...")
             filtered_valid_conf = filter_valid_conf(detected_conf, filtered_valid_indices)
-            # execute_classification(filtered_cropped_cells, effnet_model)
-            execute_classification(filtered_cropped_cells, effnet_model, filtered_valid_conf)
-            print("===========================================")
+            maxpred = execute_classification(filtered_cropped_cells, effnet_model, filtered_valid_conf)
+            print(f"🔸🔸 This image contains {len(detected_cells)} {maxpred} cells.")
+            print("\n===========================================")
         else:
-            print("🔸🔸 No valid cells found for classification.")
+            print("🔸🔸 No valid cells found for classification.\n")
             print("===========================================")
             return
     else:
-        print("🔸🔸 No cells detected.")
+        print("🔸🔸 No cells detected.\n")
         print("===========================================")
         return
 
