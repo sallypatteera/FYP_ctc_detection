@@ -1,6 +1,4 @@
 # ignore folders
-results/
-models/
 .DS_Store
 
 # Ignore model files
